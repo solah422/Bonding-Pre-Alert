@@ -12,6 +12,7 @@ A powerful, React-based web application designed to streamline the auditing of s
 - **Manual Auditing Workflow**: Easily review items, flag them for potential bonding, or mark them as cleared.
 - **Smart Batching**: The AI scan processes items in batches to respect API limits and tracks previously scanned items to avoid redundant checks.
 - **Export Capabilities**: Export your audited lists (Flagged, Manual Check, Checked) back to CSV format with AI reasons and matched keywords included.
+- **Customizable Themes**: Personalize your workspace with built-in themes including Default, Red Lava, and Golden Day.
 
 ## Tech Stack
 
@@ -51,7 +52,7 @@ A powerful, React-based web application designed to streamline the auditing of s
 
 ## Usage
 
-1. **Configure API Key**: Click on the Settings (gear) icon in the app and enter your Gemini API Key.
+1. **Configure API Key & Theme**: Click on the Settings (gear) icon in the app to enter your Gemini API Key and select your preferred UI theme.
 2. **Upload Manifest**: Drag and drop your shipping manifest CSV file into the upload area, or click to browse.
    - *Note: The CSV should ideally contain columns like `HAWB`, `PackageDesc`, `ConsigneeName`, and `ConsigneeContactNo`.*
 3. **Review & Scan**: 

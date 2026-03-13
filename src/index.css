@@ -1,1 +1,120 @@
 @import "tailwindcss";
+
+@theme {
+  /* Default Theme */
+  --color-bg-main: #F5F5F5;
+  --color-bg-card: #FFFFFF;
+  --color-bg-subtle: #F9F9F9;
+  --color-text-main: #1A1A1A;
+  --color-text-muted: #666666;
+  --color-border-main: #E5E5E5;
+  --color-accent-main: #1A1A1A;
+  --color-accent-hover: #000000;
+  --color-accent-text: #FFFFFF;
+  
+  --color-danger-main: #DC2626;
+  --color-danger-bg: #FEF2F2;
+  --color-danger-text: #B91C1C;
+  
+  --color-warning-main: #D97706;
+  --color-warning-bg: #FFFBEB;
+  --color-warning-text: #B45309;
+  
+  --color-success-main: #16A34A;
+  --color-success-bg: #F0FDF4;
+  --color-success-text: #15803D;
+  
+  --color-info-main: #2563EB;
+  --color-info-bg: #EFF6FF;
+  --color-info-text: #1D4ED8;
+
+  --font-theme: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
+  --radius-2xl: 40px;
+  --border-w: 1px;
+  --shadow-card: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --bg-image: none;
+}
+
+.theme-red-lava {
+  --color-bg-main: #0a0a0a;
+  --color-bg-card: #141414;
+  --color-bg-subtle: #1a1a1a;
+  --color-text-main: #f5f5f5;
+  --color-text-muted: #a3a3a3;
+  --color-border-main: #3f1d1d;
+  --color-accent-main: #dc2626;
+  --color-accent-hover: #b91c1c;
+  --color-accent-text: #ffffff;
+  
+  --color-danger-main: #ef4444;
+  --color-danger-bg: #450a0a;
+  --color-danger-text: #fca5a5;
+  
+  --color-warning-main: #f59e0b;
+  --color-warning-bg: #451a03;
+  --color-warning-text: #fcd34d;
+  
+  --color-success-main: #22c55e;
+  --color-success-bg: #052e16;
+  --color-success-text: #86efac;
+  
+  --color-info-main: #3b82f6;
+  --color-info-bg: #172554;
+  --color-info-text: #93c5fd;
+
+  --bg-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.04'/%3E%3C/svg%3E");
+}
+
+.theme-golden-day {
+  --color-bg-main: #050505;
+  --color-bg-card: #0a0a0a;
+  --color-bg-subtle: #111111;
+  --color-text-main: #D4AF37;
+  --color-text-muted: #8c7324;
+  --color-border-main: rgba(212, 175, 55, 0.3);
+  --color-accent-main: #D4AF37;
+  --color-accent-hover: #b5952f;
+  --color-accent-text: #000000;
+  
+  --color-danger-main: #ef4444;
+  --color-danger-bg: #2a0808;
+  --color-danger-text: #fca5a5;
+  
+  --color-warning-main: #D4AF37;
+  --color-warning-bg: #1a1505;
+  --color-warning-text: #f3e5ab;
+  
+  --color-success-main: #22c55e;
+  --color-success-bg: #052e16;
+  --color-success-text: #86efac;
+  
+  --color-info-main: #3b82f6;
+  --color-info-bg: #081229;
+  --color-info-text: #93c5fd;
+
+  --font-theme: "Playfair Display", "Georgia", ui-serif, serif;
+  --font-mono: "Courier New", Courier, monospace;
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-xl: 0px;
+  --radius-2xl: 0px;
+  --border-w: 0.5px;
+  --shadow-card: 0 10px 30px -10px rgba(212, 175, 55, 0.15);
+
+  --bg-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E");
+}
+
+/* Base styles to apply the font theme globally */
+body {
+  font-family: var(--font-theme);
+  background-image: var(--bg-image);
+  background-color: var(--color-bg-main);
+  color: var(--color-text-main);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}

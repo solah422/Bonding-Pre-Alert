@@ -1,0 +1,19 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  :root { --color-bg-main: var(--bg-main); --bg-main: #F5F5F5; }
+  .theme-red-lava { --bg-main: #0a0a0a; }
+  .bg-bg-main { background-color: var(--color-bg-main); }
+</style>
+</head>
+<body>
+  <div class='theme-red-lava bg-bg-main' id='test'>Hello</div>
+  <script>
+    const el = document.getElementById('test');
+    const computed = window.getComputedStyle(el);
+    console.log('Color:', computed.backgroundColor);
+  </script>
+</body>
+</html>

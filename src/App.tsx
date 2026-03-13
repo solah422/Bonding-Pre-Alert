@@ -52,6 +52,7 @@ interface FilterSettings {
   checkDuplicates: boolean;
   aiEnabled: boolean;
   geminiApiKey: string;
+  theme: 'default' | 'red-lava' | 'golden-day';
 }
 
 interface AIResult {
@@ -74,6 +75,7 @@ const DEFAULT_SETTINGS: FilterSettings = {
   checkDuplicates: true,
   aiEnabled: false,
   geminiApiKey: '',
+  theme: 'default',
 };
 
 // --- Components ---
@@ -82,7 +84,15 @@ export default function App() {
   const [data, setData] = useState<ManifestRow[]>([]);
   const [settings, setSettings] = useState<FilterSettings>(() => {
     const saved = localStorage.getItem('bonding_settings');
-    return saved ? JSON.parse(saved) : DEFAULT_SETTINGS;
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        return { ...DEFAULT_SETTINGS, ...parsed };
+      } catch (e) {
+        return DEFAULT_SETTINGS;
+      }
+    }
+    return DEFAULT_SETTINGS;
   });
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
@@ -101,6 +111,15 @@ export default function App() {
   // Save settings to localStorage
   React.useEffect(() => {
     localStorage.setItem('bonding_settings', JSON.stringify(settings));
+    
+    // Apply theme to document root
+    const root = document.documentElement;
+    root.classList.remove('theme-red-lava', 'theme-golden-day');
+    if (settings.theme === 'red-lava') {
+      root.classList.add('theme-red-lava');
+    } else if (settings.theme === 'golden-day') {
+      root.classList.add('theme-golden-day');
+    }
   }, [settings]);
 
   const processFile = (file: File) => {
@@ -429,7 +448,9 @@ export default function App() {
 
   return (
     <div 
-      className="min-h-screen bg-[#F5F5F5] text-[#1A1A1A] font-sans selection:bg-[#1A1A1A] selection:text-white relative"
+      className={cn(
+        "min-h-screen selection:bg-accent-main selection:text-accent-text relative transition-colors duration-300"
+      )}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
@@ -441,19 +462,19 @@ export default function App() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] bg-[#1A1A1A]/90 backdrop-blur-sm flex flex-col items-center justify-center p-12 pointer-events-none"
+            className="fixed inset-0 z-[100] bg-accent-main/90 backdrop-blur-sm flex flex-col items-center justify-center p-12 pointer-events-none"
           >
             <motion.div 
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              className="border-2 border-dashed border-white/30 rounded-[40px] w-full h-full flex flex-col items-center justify-center gap-6"
+              className="border-[length:calc(var(--border-w)*2)] border-dashed border-accent-text/30 rounded-[var(--radius-2xl)] w-full h-full flex flex-col items-center justify-center gap-6"
             >
-              <div className="w-24 h-24 bg-white rounded-3xl flex items-center justify-center text-[#1A1A1A] shadow-2xl">
+              <div className="w-24 h-24 bg-bg-card rounded-[var(--radius-xl)] flex items-center justify-center text-text-main shadow-2xl">
                 <Upload size={48} />
               </div>
               <div className="text-center space-y-2">
-                <h2 className="text-3xl font-bold text-white tracking-tight">Drop Manifest to Screen</h2>
-                <p className="text-white/60 text-lg">Release to start processing the CSV file</p>
+                <h2 className="text-3xl font-bold text-accent-text tracking-tight">Drop Manifest to Screen</h2>
+                <p className="text-accent-text/60 text-lg">Release to start processing the CSV file</p>
               </div>
             </motion.div>
           </motion.div>
@@ -461,14 +482,14 @@ export default function App() {
       </AnimatePresence>
 
       {/* Header */}
-      <header className="sticky top-0 z-30 bg-white border-b border-[#E5E5E5] px-6 py-4 flex items-center justify-between">
+      <header className="sticky top-0 z-30 bg-bg-card border-b-[length:var(--border-w)] border-border-main px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-[#1A1A1A] rounded-xl flex items-center justify-center text-white">
+          <div className="w-10 h-10 bg-accent-main rounded-[var(--radius-md)] flex items-center justify-center text-accent-text">
             <FileText size={20} />
           </div>
           <div>
             <h1 className="text-lg font-semibold tracking-tight">Bonding Pre-Alert</h1>
-            <p className="text-xs text-[#666] uppercase tracking-wider font-medium">Manifest Analysis Tool</p>
+            <p className="text-xs text-text-muted uppercase tracking-wider font-medium">Manifest Analysis Tool</p>
           </div>
         </div>
 
@@ -476,7 +497,7 @@ export default function App() {
           {data.length > 0 && (
             <button 
               onClick={resetManifest}
-              className="flex items-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors text-sm font-medium"
+              className="flex items-center gap-2 px-4 py-2 text-danger-main hover:bg-danger-bg rounded-[var(--radius-sm)] transition-colors text-sm font-medium"
             >
               <RefreshCcw size={16} />
               Reset Manifest
@@ -486,8 +507,8 @@ export default function App() {
           <button 
             onClick={() => setIsSettingsOpen(!isSettingsOpen)}
             className={cn(
-              "flex items-center gap-2 px-4 py-2 rounded-lg border transition-all text-sm font-medium",
-              isSettingsOpen ? "bg-[#1A1A1A] text-white border-[#1A1A1A]" : "bg-white text-[#1A1A1A] border-[#E5E5E5] hover:border-[#1A1A1A]"
+              "flex items-center gap-2 px-4 py-2 rounded-[var(--radius-sm)] border-[length:var(--border-w)] transition-all text-sm font-medium",
+              isSettingsOpen ? "bg-accent-main text-accent-text border-accent-main" : "bg-bg-card text-text-main border-border-main hover:border-accent-main"
             )}
           >
             <Settings2 size={16} />
@@ -503,7 +524,7 @@ export default function App() {
           />
           <button 
             onClick={() => fileInputRef.current?.click()}
-            className="flex items-center gap-2 px-4 py-2 bg-[#1A1A1A] text-white rounded-lg hover:bg-black transition-colors text-sm font-medium shadow-sm"
+            className="flex items-center gap-2 px-4 py-2 bg-accent-main text-accent-text rounded-[var(--radius-sm)] hover:bg-accent-hover transition-colors text-sm font-medium shadow-sm"
           >
             <Upload size={16} />
             Upload Manifest
@@ -517,13 +538,13 @@ export default function App() {
           <motion.div 
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center justify-between"
+            className="bg-danger-bg border-[length:var(--border-w)] border-danger-main/30 text-danger-text px-4 py-3 rounded-[var(--radius-md)] flex items-center justify-between"
           >
             <div className="flex items-center gap-2">
               <AlertCircle size={18} />
               <span className="text-sm font-medium">{error}</span>
             </div>
-            <button onClick={() => setError(null)} className="hover:bg-red-100 p-1 rounded-lg">
+            <button onClick={() => setError(null)} className="hover:bg-danger-bg p-1 rounded-[var(--radius-sm)]">
               <X size={16} />
             </button>
           </motion.div>
@@ -538,7 +559,7 @@ export default function App() {
               exit={{ height: 0, opacity: 0 }}
               className="overflow-hidden"
             >
-              <div className="bg-white border border-[#E5E5E5] rounded-2xl p-6 shadow-sm space-y-8">
+              <div className="bg-bg-card border-[length:var(--border-w)] border-border-main rounded-[var(--radius-lg)] p-6 shadow-sm space-y-8">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Settings2 size={20} />
@@ -546,7 +567,7 @@ export default function App() {
                   </div>
                   <button 
                     onClick={resetToDefault}
-                    className="flex items-center gap-2 text-xs font-bold text-[#1A1A1A] hover:underline"
+                    className="flex items-center gap-2 text-xs font-bold text-text-main hover:underline"
                   >
                     <RefreshCcw size={14} />
                     RESET TO DEFAULT
@@ -556,29 +577,29 @@ export default function App() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                   {/* Price Threshold */}
                   <div className="space-y-3">
-                    <label className="text-xs font-bold uppercase tracking-wider text-[#999]">Price Threshold (USD)</label>
+                    <label className="text-xs font-bold uppercase tracking-wider text-text-muted/70">Price Threshold (USD)</label>
                     <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#999] text-sm">$</span>
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted/70 text-sm">$</span>
                       <input 
                         type="number" 
                         value={settings.priceThreshold}
                         onChange={(e) => setSettings({ ...settings, priceThreshold: Number(e.target.value) })}
-                        className="w-full pl-7 pr-4 py-2.5 bg-[#F9F9F9] border border-[#EEE] rounded-xl focus:outline-none focus:border-[#1A1A1A] transition-colors font-mono"
+                        className="w-full pl-7 pr-4 py-2.5 bg-bg-subtle border-[length:var(--border-w)] border-border-main rounded-[var(--radius-md)] focus:outline-none focus:border-accent-main transition-colors font-mono"
                       />
                     </div>
-                    <p className="text-[10px] text-[#999]">Identify items exceeding this price for potential bonding pre-alert.</p>
+                    <p className="text-[10px] text-text-muted/70">Identify items exceeding this price for potential bonding pre-alert.</p>
                   </div>
 
                   {/* Keywords */}
                   <div className="space-y-3">
-                    <label className="text-xs font-bold uppercase tracking-wider text-[#999]">Bonding Keywords</label>
-                    <div className="flex flex-wrap gap-2 p-3 bg-[#F9F9F9] border border-[#EEE] rounded-xl min-h-[46px]">
+                    <label className="text-xs font-bold uppercase tracking-wider text-text-muted/70">Bonding Keywords</label>
+                    <div className="flex flex-wrap gap-2 p-3 bg-bg-subtle border-[length:var(--border-w)] border-border-main rounded-[var(--radius-md)] min-h-[46px]">
                       {settings.keywords.map((kw, i) => (
-                        <span key={i} className="flex items-center gap-1.5 px-2.5 py-1 bg-white border border-[#DDD] rounded-lg text-xs font-medium">
+                        <span key={i} className="flex items-center gap-1.5 px-2.5 py-1 bg-bg-card border-[length:var(--border-w)] border-border-main rounded-[var(--radius-sm)] text-xs font-medium">
                           {kw}
                           <button 
                             onClick={() => setSettings({ ...settings, keywords: settings.keywords.filter((_, idx) => idx !== i) })}
-                            className="text-[#999] hover:text-red-500"
+                            className="text-text-muted/70 hover:text-danger-main"
                           >
                             <X size={12} />
                           </button>
@@ -598,22 +619,22 @@ export default function App() {
                         }}
                       />
                     </div>
-                    <p className="text-[10px] text-[#999]">Keywords used to identify items that might get bonded (matches PackageDesc).</p>
+                    <p className="text-[10px] text-text-muted/70">Keywords used to identify items that might get bonded (matches PackageDesc).</p>
                   </div>
 
                   {/* AI Settings */}
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                      <label className="text-xs font-bold uppercase tracking-wider text-[#999]">AI Classification (Gemini)</label>
+                      <label className="text-xs font-bold uppercase tracking-wider text-text-muted/70">AI Classification (Gemini)</label>
                       <div 
                         onClick={() => setSettings({ ...settings, aiEnabled: !settings.aiEnabled })}
                         className={cn(
                           "w-10 h-5 rounded-full relative cursor-pointer transition-colors",
-                          settings.aiEnabled ? "bg-green-500" : "bg-[#DDD]"
+                          settings.aiEnabled ? "bg-success-main" : "bg-border-main"
                         )}
                       >
                         <div className={cn(
-                          "absolute top-1 w-3 h-3 bg-white rounded-full transition-all",
+                          "absolute top-1 w-3 h-3 bg-bg-card rounded-full transition-all",
                           settings.aiEnabled ? "left-6" : "left-1"
                         )} />
                       </div>
@@ -626,20 +647,60 @@ export default function App() {
                         value={settings.geminiApiKey}
                         onChange={(e) => setSettings({ ...settings, geminiApiKey: e.target.value })}
                         disabled={!settings.aiEnabled}
-                        className="w-full px-4 py-2.5 bg-[#F9F9F9] border border-[#EEE] rounded-xl focus:outline-none focus:border-[#1A1A1A] transition-colors font-mono text-xs disabled:opacity-50"
+                        className="w-full px-4 py-2.5 bg-bg-subtle border-[length:var(--border-w)] border-border-main rounded-[var(--radius-md)] focus:outline-none focus:border-accent-main transition-colors font-mono text-xs disabled:opacity-50"
                       />
-                      <p className="text-[10px] text-[#999]">Required for intelligent PackageDesc analysis.</p>
+                      <p className="text-[10px] text-text-muted/70">Required for intelligent PackageDesc analysis.</p>
                     </div>
+                  </div>
+                  {/* Theme Settings */}
+                  <div className="space-y-3">
+                    <label className="text-xs font-bold uppercase tracking-wider text-text-muted/70">App Theme</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      <button
+                        onClick={() => setSettings({ ...settings, theme: 'default' })}
+                        className={cn(
+                          "px-3 py-2 rounded-[var(--radius-md)] text-xs font-bold transition-all border",
+                          settings.theme === 'default' 
+                            ? "bg-accent-main text-accent-text border-accent-main" 
+                            : "bg-bg-subtle text-text-muted border-border-main hover:border-accent-main"
+                        )}
+                      >
+                        Default
+                      </button>
+                      <button
+                        onClick={() => setSettings({ ...settings, theme: 'red-lava' })}
+                        className={cn(
+                          "px-3 py-2 rounded-[var(--radius-md)] text-xs font-bold transition-all border",
+                          settings.theme === 'red-lava' 
+                            ? "bg-danger-main text-white border-danger-main" 
+                            : "bg-bg-subtle text-text-muted border-border-main hover:border-danger-main"
+                        )}
+                      >
+                        Red Lava
+                      </button>
+                      <button
+                        onClick={() => setSettings({ ...settings, theme: 'golden-day' })}
+                        className={cn(
+                          "px-3 py-2 rounded-[var(--radius-md)] text-xs font-bold transition-all border",
+                          settings.theme === 'golden-day' 
+                            ? "bg-[#D4AF37] text-black border-[#D4AF37]" 
+                            : "bg-bg-subtle text-text-muted border-border-main hover:border-[#D4AF37]"
+                        )}
+                      >
+                        Golden Day
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-text-muted/70">Select the visual appearance of the application.</p>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3 pt-4 border-t border-[#F5F5F5]">
+                <div className="flex items-center gap-3 pt-4 border-t-[length:var(--border-w)] border-border-main">
                   <input 
                     type="checkbox" 
                     id="dup-check"
                     checked={settings.checkDuplicates}
                     onChange={(e) => setSettings({ ...settings, checkDuplicates: e.target.checked })}
-                    className="w-4 h-4 accent-[#1A1A1A]"
+                    className="w-4 h-4 accent-accent-main"
                   />
                   <label htmlFor="dup-check" className="text-sm font-medium cursor-pointer select-none">
                     Identify duplicate consignees (Potential bonding risk)
@@ -652,44 +713,44 @@ export default function App() {
 
         {data.length > 0 && stats && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-white p-5 rounded-2xl border border-[#E5E5E5] shadow-sm flex items-center gap-4">
-              <div className="w-12 h-12 bg-red-50 text-red-600 rounded-xl flex items-center justify-center">
+            <div className="bg-bg-card p-5 rounded-[var(--radius-lg)] border-[length:var(--border-w)] border-border-main shadow-sm flex items-center gap-4">
+              <div className="w-12 h-12 bg-danger-bg text-danger-main rounded-[var(--radius-md)] flex items-center justify-center">
                 <AlertTriangle size={24} />
               </div>
               <div>
-                <p className="text-xs font-bold text-[#999] uppercase tracking-wider">Bonding Rate</p>
+                <p className="text-xs font-bold text-text-muted/70 uppercase tracking-wider">Bonding Rate</p>
                 <h3 className="text-2xl font-bold tracking-tight">{stats.percentage}%</h3>
-                <p className="text-[10px] text-[#666]">{stats.flagged} of {stats.total} items flagged</p>
+                <p className="text-[10px] text-text-muted">{stats.flagged} of {stats.total} items flagged</p>
               </div>
             </div>
-            <div className="bg-white p-5 rounded-2xl border border-[#E5E5E5] shadow-sm flex items-center gap-4">
-              <div className="w-12 h-12 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center">
+            <div className="bg-bg-card p-5 rounded-[var(--radius-lg)] border-[length:var(--border-w)] border-border-main shadow-sm flex items-center gap-4">
+              <div className="w-12 h-12 bg-warning-bg text-warning-main rounded-[var(--radius-md)] flex items-center justify-center">
                 <DollarSign size={24} />
               </div>
               <div>
-                <p className="text-xs font-bold text-[#999] uppercase tracking-wider">Potential Value</p>
+                <p className="text-xs font-bold text-text-muted/70 uppercase tracking-wider">Potential Value</p>
                 <h3 className="text-2xl font-bold tracking-tight">${stats.totalValue}</h3>
-                <p className="text-[10px] text-[#666]">Total value of flagged items</p>
+                <p className="text-[10px] text-text-muted">Total value of flagged items</p>
               </div>
             </div>
-            <div className="bg-white p-5 rounded-2xl border border-[#E5E5E5] shadow-sm flex items-center gap-4">
-              <div className="w-12 h-12 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center">
+            <div className="bg-bg-card p-5 rounded-[var(--radius-lg)] border-[length:var(--border-w)] border-border-main shadow-sm flex items-center gap-4">
+              <div className="w-12 h-12 bg-info-bg text-info-main rounded-[var(--radius-md)] flex items-center justify-center">
                 <TrendingUp size={24} />
               </div>
               <div>
-                <p className="text-xs font-bold text-[#999] uppercase tracking-wider">Top Reason</p>
+                <p className="text-xs font-bold text-text-muted/70 uppercase tracking-wider">Top Reason</p>
                 <h3 className="text-2xl font-bold tracking-tight">{stats.topReason}</h3>
-                <p className="text-[10px] text-[#666]">Most frequent bonding trigger</p>
+                <p className="text-[10px] text-text-muted">Most frequent bonding trigger</p>
               </div>
             </div>
-            <div className="bg-white p-5 rounded-2xl border border-[#E5E5E5] shadow-sm flex items-center gap-4">
-              <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
+            <div className="bg-bg-card p-5 rounded-[var(--radius-lg)] border-[length:var(--border-w)] border-border-main shadow-sm flex items-center gap-4">
+              <div className="w-12 h-12 bg-info-bg text-blue-600 rounded-[var(--radius-md)] flex items-center justify-center">
                 <Brain size={24} />
               </div>
               <div>
-                <p className="text-xs font-bold text-[#999] uppercase tracking-wider">AI Status</p>
+                <p className="text-xs font-bold text-text-muted/70 uppercase tracking-wider">AI Status</p>
                 <h3 className="text-2xl font-bold tracking-tight">{settings.aiEnabled ? 'Active' : 'Disabled'}</h3>
-                <p className="text-[10px] text-[#666]">{Object.keys(aiResults).length} AI detections</p>
+                <p className="text-[10px] text-text-muted">{Object.keys(aiResults).length} AI detections</p>
               </div>
             </div>
           </div>
@@ -698,36 +759,36 @@ export default function App() {
         {data.length === 0 ? (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div 
-              className="lg:col-span-2 bg-white border-2 border-dashed border-[#E5E5E5] rounded-3xl h-[450px] flex flex-col items-center justify-center text-center p-12 transition-all"
+              className="lg:col-span-2 bg-bg-card border-[length:calc(var(--border-w)*2)] border-dashed border-border-main rounded-[var(--radius-xl)] h-[450px] flex flex-col items-center justify-center text-center p-12 transition-all"
             >
-              <div className="w-16 h-16 bg-[#F9F9F9] text-[#CCC] rounded-2xl flex items-center justify-center mb-4 transition-colors">
+              <div className="w-16 h-16 bg-bg-subtle text-text-muted/40 rounded-[var(--radius-lg)] flex items-center justify-center mb-4 transition-colors">
                 <Upload size={32} />
               </div>
               <h3 className="text-xl font-semibold mb-2">Upload manifest for pre-alert</h3>
-              <p className="text-[#666] max-w-md mb-8">
+              <p className="text-text-muted max-w-md mb-8">
                 Drag and drop your .csv manifest file anywhere to identify items that might get bonded.
               </p>
               <button 
                 onClick={() => fileInputRef.current?.click()}
-                className="px-8 py-3 bg-[#1A1A1A] text-white rounded-xl font-bold hover:scale-[1.02] active:scale-[0.98] transition-all shadow-lg"
+                className="px-8 py-3 bg-accent-main text-accent-text rounded-[var(--radius-md)] font-bold hover:scale-[1.02] active:scale-[0.98] transition-all shadow-lg"
               >
                 Select CSV File
               </button>
             </div>
             
-            <div className="bg-white border border-[#E5E5E5] rounded-3xl p-8 space-y-6">
-              <div className="flex items-center gap-3 text-[#1A1A1A]">
+            <div className="bg-bg-card border-[length:var(--border-w)] border-border-main rounded-[var(--radius-xl)] p-8 space-y-6">
+              <div className="flex items-center gap-3 text-text-main">
                 <Info size={20} />
                 <h3 className="font-bold uppercase tracking-wider text-sm">Sample CSV Structure</h3>
               </div>
-              <div className="bg-[#F9F9F9] p-4 rounded-xl font-mono text-[10px] text-[#666] overflow-x-auto whitespace-pre">
+              <div className="bg-bg-subtle p-4 rounded-[var(--radius-md)] font-mono text-[10px] text-text-muted overflow-x-auto whitespace-pre">
                 HAWB,ConsigneeName,ConsigneeContactNo,UnitPrice,PackageDesc{"\n"}
                 H123,John Doe,0123456789,750,iPhone 15 Pro{"\n"}
                 H124,Jane Smith,0987654321,50,T-Shirt{"\n"}
                 H125,John Doe,0123456789,120,Supplements
               </div>
               <div className="space-y-4 pt-4">
-                <p className="text-xs text-[#666] leading-relaxed">
+                <p className="text-xs text-text-muted leading-relaxed">
                   Your CSV must include these exact headers for the tool to work correctly.
                 </p>
                 <button 
@@ -740,7 +801,7 @@ export default function App() {
                     a.download = 'manifest_template.csv';
                     a.click();
                   }}
-                  className="w-full flex items-center justify-center gap-2 py-3 border border-[#E5E5E5] rounded-xl text-sm font-bold hover:bg-[#F9F9F9] transition-colors"
+                  className="w-full flex items-center justify-center gap-2 py-3 border-[length:var(--border-w)] border-border-main rounded-[var(--radius-md)] text-sm font-bold hover:bg-bg-subtle transition-colors"
                 >
                   <Download size={16} />
                   Download Template
@@ -754,13 +815,13 @@ export default function App() {
             <div className="space-y-4">
               <div className="flex items-center justify-between px-2">
                 <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                  <h2 className="font-bold uppercase tracking-widest text-sm text-[#1A1A1A]">Potential Bonded Items ({selected.length})</h2>
+                  <div className="w-2 h-2 rounded-full bg-danger-bg0 animate-pulse" />
+                  <h2 className="font-bold uppercase tracking-widest text-sm text-text-main">Potential Bonded Items ({selected.length})</h2>
                 </div>
                 <div className="flex items-center gap-2">
                   <button 
                     onClick={() => exportToCSV(selected, 'flagged')}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-white border border-[#E5E5E5] rounded-lg text-xs font-bold hover:border-[#1A1A1A] transition-all"
+                    className="flex items-center gap-2 px-3 py-1.5 bg-bg-card border-[length:var(--border-w)] border-border-main rounded-[var(--radius-sm)] text-xs font-bold hover:border-accent-main transition-all"
                   >
                     <Upload size={14} className="rotate-180" />
                     EXPORT CSV
@@ -768,7 +829,7 @@ export default function App() {
                   <button 
                     onClick={() => copyToClipboard(selected)}
                     disabled={selected.length === 0}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-white border border-[#E5E5E5] rounded-lg text-xs font-bold hover:border-[#1A1A1A] transition-all disabled:opacity-50"
+                    className="flex items-center gap-2 px-3 py-1.5 bg-bg-card border-[length:var(--border-w)] border-border-main rounded-[var(--radius-sm)] text-xs font-bold hover:border-accent-main transition-all disabled:opacity-50"
                   >
                     {copyStatus === 'copied' ? <CheckCircle2 size={14} className="text-green-600" /> : <Copy size={14} />}
                     {copyStatus === 'copied' ? 'COPIED' : 'COPY FOR SYSTEM'}
@@ -776,23 +837,23 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="bg-white border border-[#E5E5E5] rounded-2xl overflow-hidden shadow-sm">
+              <div className="bg-bg-card border-[length:var(--border-w)] border-border-main rounded-[var(--radius-lg)] overflow-hidden shadow-sm">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse">
                     <thead>
-                      <tr className="bg-[#F9F9F9] border-bottom border-[#EEE]">
-                        <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-[#999]">HAWB</th>
-                        <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-[#999]">Consignee Name</th>
-                        <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-[#999]">Contact No</th>
-                        <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-[#999]">Bonding Reasons</th>
+                      <tr className="bg-bg-subtle border-bottom border-border-main">
+                        <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-text-muted/70">HAWB</th>
+                        <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-text-muted/70">Consignee Name</th>
+                        <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-text-muted/70">Contact No</th>
+                        <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-text-muted/70">Bonding Reasons</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#F5F5F5]">
+                    <tbody className="divide-y divide-border-main">
                       {selected.length > 0 ? selected.map((row, i) => (
-                        <tr key={i} className="hover:bg-[#FFF9F9] transition-colors group">
-                          <td className="px-4 py-3 text-sm font-mono font-medium text-[#1A1A1A]">{row.HAWB}</td>
+                        <tr key={i} className="hover:bg-danger-bg/50 transition-colors group">
+                          <td className="px-4 py-3 text-sm font-mono font-medium text-text-main">{row.HAWB}</td>
                           <td className="px-4 py-3 text-sm font-medium">{row.ConsigneeName}</td>
-                          <td className="px-4 py-3 text-sm text-[#666] font-mono">{row.ConsigneeContactNo}</td>
+                          <td className="px-4 py-3 text-sm text-text-muted font-mono">{row.ConsigneeContactNo}</td>
                           <td className="px-4 py-3">
                             <div className="flex flex-wrap gap-1">
                               {row.reasons.map(reason => (
@@ -805,11 +866,11 @@ export default function App() {
                                   }
                                   className={cn(
                                     "text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-tighter cursor-help",
-                                    reason === 'Price' ? "bg-red-100 text-red-700" :
-                                    reason === 'Duplicate' ? "bg-purple-100 text-purple-700" :
-                                    reason === 'Keyword' ? "bg-amber-100 text-amber-700" :
-                                    reason === 'AI' ? "bg-blue-100 text-blue-700" :
-                                    "bg-gray-100 text-gray-700"
+                                    reason === 'Price' ? "bg-danger-bg text-danger-text" :
+                                    reason === 'Duplicate' ? "bg-info-bg text-info-text" :
+                                    reason === 'Keyword' ? "bg-warning-bg text-warning-text" :
+                                    reason === 'AI' ? "bg-info-bg text-info-text" :
+                                    "bg-bg-subtle text-text-muted"
                                   )}
                                 >
                                   {reason}
@@ -820,7 +881,7 @@ export default function App() {
                         </tr>
                       )) : (
                         <tr>
-                          <td colSpan={4} className="px-4 py-12 text-center text-[#999] text-sm italic">No items identified for bonding.</td>
+                          <td colSpan={4} className="px-4 py-12 text-center text-text-muted/70 text-sm italic">No items identified for bonding.</td>
                         </tr>
                       )}
                     </tbody>
@@ -833,15 +894,15 @@ export default function App() {
             <div className="space-y-4">
               <div className="flex items-center justify-between px-2">
                 <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-green-500" />
-                  <h2 className="font-bold uppercase tracking-widest text-sm text-[#1A1A1A]">Manual Check ({notSelected.length})</h2>
+                  <div className="w-2 h-2 rounded-full bg-success-main" />
+                  <h2 className="font-bold uppercase tracking-widest text-sm text-text-main">Manual Check ({notSelected.length})</h2>
                 </div>
                 <div className="flex items-center gap-2">
                   {settings.aiEnabled && (
                     <button 
                       onClick={runAiClassification}
                       disabled={isAiScanning || notSelected.length === 0}
-                      className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg text-xs font-bold hover:bg-blue-100 transition-all disabled:opacity-50"
+                      className="flex items-center gap-2 px-3 py-1.5 bg-info-bg text-info-text border-[length:var(--border-w)] border-blue-200 rounded-[var(--radius-sm)] text-xs font-bold hover:bg-info-bg transition-all disabled:opacity-50"
                     >
                       {isAiScanning ? <RefreshCcw size={14} className="animate-spin" /> : <Brain size={14} />}
                       {isAiScanning ? 'SCANNING...' : 'AI SCAN'}
@@ -849,7 +910,7 @@ export default function App() {
                   )}
                   <button 
                     onClick={() => exportToCSV(notSelected, 'manual_check')}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-white border border-[#E5E5E5] rounded-lg text-xs font-bold hover:border-[#1A1A1A] transition-all"
+                    className="flex items-center gap-2 px-3 py-1.5 bg-bg-card border-[length:var(--border-w)] border-border-main rounded-[var(--radius-sm)] text-xs font-bold hover:border-accent-main transition-all"
                   >
                     <Upload size={14} className="rotate-180" />
                     EXPORT CSV
@@ -857,8 +918,8 @@ export default function App() {
                   <button 
                     onClick={() => setShowCheckedTable(!showCheckedTable)}
                     className={cn(
-                      "flex items-center gap-2 px-3 py-1.5 border rounded-lg text-xs font-bold transition-all",
-                      showCheckedTable ? "bg-[#1A1A1A] text-white border-[#1A1A1A]" : "bg-white text-[#1A1A1A] border-[#E5E5E5] hover:border-[#1A1A1A]"
+                      "flex items-center gap-2 px-3 py-1.5 border-[length:var(--border-w)] rounded-[var(--radius-sm)] text-xs font-bold transition-all",
+                      showCheckedTable ? "bg-accent-main text-accent-text border-accent-main" : "bg-bg-card text-text-main border-border-main hover:border-accent-main"
                     )}
                   >
                     <CheckCircle2 size={14} />
@@ -867,22 +928,22 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="bg-white border border-[#E5E5E5] rounded-2xl overflow-hidden shadow-sm">
+              <div className="bg-bg-card border-[length:var(--border-w)] border-border-main rounded-[var(--radius-lg)] overflow-hidden shadow-sm">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse">
                     <thead>
-                      <tr className="bg-[#F9F9F9] border-bottom border-[#EEE]">
-                        <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-[#999]">HAWB</th>
-                        <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-[#999]">Consignee Name</th>
-                        <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-[#999]">Contact No</th>
-                        <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-[#999] text-right">Action</th>
+                      <tr className="bg-bg-subtle border-bottom border-border-main">
+                        <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-text-muted/70">HAWB</th>
+                        <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-text-muted/70">Consignee Name</th>
+                        <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-text-muted/70">Contact No</th>
+                        <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-text-muted/70 text-right">Action</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#F5F5F5]">
+                    <tbody className="divide-y divide-border-main">
                       {notSelected.length > 0 ? notSelected.map((row, i) => (
-                        <tr key={i} className="hover:bg-[#F9FFF9] transition-colors group">
+                        <tr key={i} className="hover:bg-success-bg/50 transition-colors group">
                           <td 
-                            className="px-4 py-3 text-sm font-mono text-[#666] cursor-pointer hover:text-[#1A1A1A] transition-colors"
+                            className="px-4 py-3 text-sm font-mono text-text-muted cursor-pointer hover:text-text-main transition-colors"
                             onClick={() => setAuditItem(row)}
                             title="Click to Audit"
                           >
@@ -892,14 +953,14 @@ export default function App() {
                             </div>
                           </td>
                           <td className="px-4 py-3 text-sm font-medium">{row.ConsigneeName}</td>
-                          <td className="px-4 py-3 text-sm text-[#999] font-mono">{row.ConsigneeContactNo}</td>
+                          <td className="px-4 py-3 text-sm text-text-muted/70 font-mono">{row.ConsigneeContactNo}</td>
                           <td className="px-4 py-3 text-right">
                             <button 
                               onClick={(e) => {
                                 e.stopPropagation();
                                 toggleManualFlag(row.HAWB);
                               }}
-                              className="text-[10px] font-bold text-red-600 hover:underline"
+                              className="text-[10px] font-bold text-danger-main hover:underline"
                             >
                               FLAG
                             </button>
@@ -907,7 +968,7 @@ export default function App() {
                         </tr>
                       )) : (
                         <tr>
-                          <td colSpan={4} className="px-4 py-12 text-center text-[#999] text-sm italic">No items for manual check.</td>
+                          <td colSpan={4} className="px-4 py-12 text-center text-text-muted/70 text-sm italic">No items for manual check.</td>
                         </tr>
                       )}
                     </tbody>
@@ -927,35 +988,35 @@ export default function App() {
                 >
                   <div className="flex items-center justify-between px-2">
                     <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-blue-500" />
-                      <h2 className="font-bold uppercase tracking-widest text-sm text-[#1A1A1A]">Checked - Will Not Be Bonded ({checked.length})</h2>
+                      <div className="w-2 h-2 rounded-full bg-info-bg0" />
+                      <h2 className="font-bold uppercase tracking-widest text-sm text-text-main">Checked - Will Not Be Bonded ({checked.length})</h2>
                     </div>
                     <button 
                       onClick={() => exportToCSV(checked, 'checked')}
-                      className="flex items-center gap-2 px-3 py-1.5 bg-white border border-[#E5E5E5] rounded-lg text-xs font-bold hover:border-[#1A1A1A] transition-all"
+                      className="flex items-center gap-2 px-3 py-1.5 bg-bg-card border-[length:var(--border-w)] border-border-main rounded-[var(--radius-sm)] text-xs font-bold hover:border-accent-main transition-all"
                     >
                       <Upload size={14} className="rotate-180" />
                       EXPORT CSV
                     </button>
                   </div>
 
-                  <div className="bg-white border border-[#E5E5E5] rounded-2xl overflow-hidden shadow-sm">
+                  <div className="bg-bg-card border-[length:var(--border-w)] border-border-main rounded-[var(--radius-lg)] overflow-hidden shadow-sm">
                     <div className="overflow-x-auto">
                       <table className="w-full text-left border-collapse">
                         <thead>
-                          <tr className="bg-[#F9F9F9] border-bottom border-[#EEE]">
-                            <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-[#999]">HAWB</th>
-                            <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-[#999]">Consignee Name</th>
-                            <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-[#999]">Contact No</th>
-                            <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-[#999] text-right">Action</th>
+                          <tr className="bg-bg-subtle border-bottom border-border-main">
+                            <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-text-muted/70">HAWB</th>
+                            <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-text-muted/70">Consignee Name</th>
+                            <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-text-muted/70">Contact No</th>
+                            <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-text-muted/70 text-right">Action</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-[#F5F5F5]">
+                        <tbody className="divide-y divide-border-main">
                           {checked.length > 0 ? checked.map((row, i) => (
-                            <tr key={i} className="hover:bg-[#F9F9FF] transition-colors group">
-                              <td className="px-4 py-3 text-sm font-mono text-[#666]">{row.HAWB}</td>
+                            <tr key={i} className="hover:bg-info-bg/50 transition-colors group">
+                              <td className="px-4 py-3 text-sm font-mono text-text-muted">{row.HAWB}</td>
                               <td className="px-4 py-3 text-sm font-medium">{row.ConsigneeName}</td>
-                              <td className="px-4 py-3 text-sm text-[#999] font-mono">{row.ConsigneeContactNo}</td>
+                              <td className="px-4 py-3 text-sm text-text-muted/70 font-mono">{row.ConsigneeContactNo}</td>
                               <td className="px-4 py-3 text-right">
                                 <button 
                                   onClick={() => {
@@ -965,7 +1026,7 @@ export default function App() {
                                       return next;
                                     });
                                   }}
-                                  className="text-[10px] font-bold text-[#666] hover:text-[#1A1A1A] hover:underline"
+                                  className="text-[10px] font-bold text-text-muted hover:text-text-main hover:underline"
                                 >
                                   RESTORE
                                 </button>
@@ -973,7 +1034,7 @@ export default function App() {
                             </tr>
                           )) : (
                             <tr>
-                              <td colSpan={4} className="px-4 py-12 text-center text-[#999] text-sm italic">No items marked as checked.</td>
+                              <td colSpan={4} className="px-4 py-12 text-center text-text-muted/70 text-sm italic">No items marked as checked.</td>
                             </tr>
                           )}
                         </tbody>
@@ -996,58 +1057,58 @@ export default function App() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setAuditItem(null)}
-              className="absolute inset-0 bg-[#1A1A1A]/60 backdrop-blur-sm"
+              className="absolute inset-0 bg-accent-main/60 backdrop-blur-sm"
             />
             <motion.div 
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="bg-white rounded-[32px] w-full max-w-lg overflow-hidden shadow-2xl relative z-10"
+              className="bg-bg-card rounded-[var(--radius-xl)] w-full max-w-lg overflow-hidden shadow-2xl relative z-10"
             >
               <div className="p-8 space-y-6">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-[#F5F5F5] rounded-xl flex items-center justify-center">
+                    <div className="w-10 h-10 bg-bg-main rounded-[var(--radius-md)] flex items-center justify-center">
                       <Search size={20} />
                     </div>
                     <div>
                       <h3 className="text-lg font-bold tracking-tight">Audit Item</h3>
-                      <p className="text-xs text-[#666] font-mono">{auditItem.HAWB}</p>
+                      <p className="text-xs text-text-muted font-mono">{auditItem.HAWB}</p>
                     </div>
                   </div>
-                  <button onClick={() => setAuditItem(null)} className="p-2 hover:bg-[#F5F5F5] rounded-full transition-colors">
+                  <button onClick={() => setAuditItem(null)} className="p-2 hover:bg-bg-main rounded-full transition-colors">
                     <X size={20} />
                   </button>
                 </div>
 
                 <div className="space-y-4">
                   <div className="space-y-1">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-[#999]">Consignee</p>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-text-muted/70">Consignee</p>
                     <p className="text-sm font-medium">{auditItem.ConsigneeName}</p>
-                    <p className="text-xs text-[#666] font-mono">{auditItem.ConsigneeContactNo}</p>
+                    <p className="text-xs text-text-muted font-mono">{auditItem.ConsigneeContactNo}</p>
                   </div>
 
                   <div className="space-y-1">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-[#999]">Package Description</p>
-                    <div className="p-4 bg-[#F9F9F9] rounded-2xl border border-[#EEE] text-sm leading-relaxed">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-text-muted/70">Package Description</p>
+                    <div className="p-4 bg-bg-subtle rounded-[var(--radius-lg)] border-[length:var(--border-w)] border-border-main text-sm leading-relaxed">
                       {auditItem.PackageDesc}
                     </div>
                   </div>
 
                   <div className="flex items-center justify-between pt-4 gap-4">
-                    <div className="text-xs font-bold text-[#999]">
-                      UNIT PRICE: <span className="text-[#1A1A1A] font-mono">${auditItem.UnitPrice}</span>
+                    <div className="text-xs font-bold text-text-muted/70">
+                      UNIT PRICE: <span className="text-text-main font-mono">${auditItem.UnitPrice}</span>
                     </div>
                     <div className="flex items-center gap-3">
                       <button 
                         onClick={() => markAsChecked(auditItem.HAWB, true)}
-                        className="px-6 py-2.5 bg-[#F5F5F5] text-[#1A1A1A] rounded-xl text-sm font-bold hover:bg-[#E5E5E5] transition-colors"
+                        className="px-6 py-2.5 bg-bg-main text-text-main rounded-[var(--radius-md)] text-sm font-bold hover:bg-border-main transition-colors"
                       >
                         Will Not Be Bonded
                       </button>
                       <button 
                         onClick={() => toggleManualFlag(auditItem.HAWB, true)}
-                        className="px-6 py-2.5 bg-red-600 text-white rounded-xl text-sm font-bold hover:bg-red-700 transition-colors shadow-lg shadow-red-200"
+                        className="px-6 py-2.5 bg-danger-main text-white rounded-[var(--radius-md)] text-sm font-bold hover:bg-danger-main/80 transition-colors shadow-lg shadow-danger-main/20"
                       >
                         Flag as Potential Bonding
                       </button>
@@ -1062,10 +1123,10 @@ export default function App() {
 
       {/* Footer Info */}
       {fileName && (
-        <div className="fixed bottom-6 left-6 bg-[#1A1A1A] text-white px-4 py-2 rounded-full text-xs font-bold shadow-2xl flex items-center gap-3">
+        <div className="fixed bottom-6 left-6 bg-accent-main text-accent-text px-4 py-2 rounded-full text-xs font-bold shadow-2xl flex items-center gap-3">
           <FileText size={14} />
           {fileName}
-          <div className="w-px h-3 bg-white/20" />
+          <div className="w-px h-3 bg-bg-card/20" />
           {data.length} TOTAL ROWS
         </div>
       )}
