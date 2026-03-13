@@ -5,10 +5,10 @@ A powerful, React-based web application designed to streamline the auditing of s
 ## Features
 
 - **CSV Manifest Processing**: Upload and parse large shipping manifest CSV files instantly.
-- **AI-Powered Scanning**: Integrates with the Google Gemini API to automatically analyze package descriptions. It specifically looks for:
-  - Masked descriptions trying to hide regulated items.
-  - Supplements and electronics.
-  - Vehicle spare parts (cars and motorcycles, e.g., "airblade exhaust cover").
+- **AI-Powered Scanning**: Integrates with the Google Gemini API to automatically analyze package descriptions.
+- **Customizable AI Rules**: Define your own custom rules, keywords, and restricted categories directly in the Settings menu.
+- **Multilingual Translation**: Automatically detect and translate foreign language package descriptions during the AI scan for better accuracy.
+- **Historical Memory (IndexedDB)**: Remembers items that were previously manually cleared or flagged. If the exact same item appears in a future manifest, it is auto-processed without consuming AI tokens.
 - **Manual Auditing Workflow**: Easily review items, flag them for potential bonding, or mark them as cleared.
 - **Smart Batching**: The AI scan processes items in batches to respect API limits and tracks previously scanned items to avoid redundant checks.
 - **Export Capabilities**: Export your audited lists (Flagged, Manual Check, Checked) back to CSV format with AI reasons and matched keywords included.
@@ -21,6 +21,7 @@ A powerful, React-based web application designed to streamline the auditing of s
 - **Icons**: Lucide React
 - **CSV Parsing**: PapaParse
 - **AI Integration**: `@google/genai` (Gemini 3.1 Flash Preview)
+- **Local Database**: IndexedDB
 
 ## Getting Started
 
@@ -53,14 +54,15 @@ A powerful, React-based web application designed to streamline the auditing of s
 ## Usage
 
 1. **Configure API Key & Theme**: Click on the Settings (gear) icon in the app to enter your Gemini API Key and select your preferred UI theme.
-2. **Upload Manifest**: Drag and drop your shipping manifest CSV file into the upload area, or click to browse.
+2. **Configure AI Settings**: Click on the AI Configuration (brain) icon to set up your custom rules, target keywords, and enable translation.
+3. **Upload Manifest**: Drag and drop your shipping manifest CSV file into the upload area, or click to browse.
    - *Note: The CSV should ideally contain columns like `HAWB`, `PackageDesc`, `ConsigneeName`, and `ConsigneeContactNo`.*
-3. **Review & Scan**: 
+4. **Review & Scan**: 
    - Items will populate in the "Manual Check" tab.
    - Click **AI SCAN** to let Gemini analyze the package descriptions for restricted items.
    - Flagged items will automatically move to the "Flagged" tab with the AI's reasoning.
-4. **Manual Audit**: Use the "FLAG" or "Will Not Be Bonded" buttons to manually process items.
-5. **Export**: Click the "Export CSV" button on any tab to download the processed data.
+5. **Manual Audit**: Use the "FLAG" or "Will Not Be Bonded" buttons to manually process items. Your decisions are saved to the local database for future manifests.
+6. **Export**: Click the "Export CSV" button on any tab to download the processed data.
 
 ## License
 

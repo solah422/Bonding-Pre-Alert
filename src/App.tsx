@@ -53,6 +53,9 @@ interface FilterSettings {
   aiEnabled: boolean;
   geminiApiKey: string;
   theme: 'default' | 'red-lava' | 'golden-day';
+  aiRules: string[];
+  aiKeywords: string[];
+  enableTranslation: boolean;
 }
 
 interface AIResult {
@@ -76,7 +79,18 @@ const DEFAULT_SETTINGS: FilterSettings = {
   aiEnabled: false,
   geminiApiKey: '',
   theme: 'default',
+  aiRules: [
+    'Masked descriptions trying to hide regulated items.',
+    'Supplements and electronics.',
+    'Vehicle spare parts (cars and motorcycles, e.g., "airblade exhaust cover").'
+  ],
+  aiKeywords: [
+    'supplement', 'vitamin', 'phone', 'laptop', 'engine', 'exhaust'
+  ],
+  enableTranslation: false
 };
+
+import { saveDecision, getDecision, getAllDecisions, HistoricalDecision } from './services/db';
 
 // --- Components ---
 
@@ -95,6 +109,7 @@ export default function App() {
     return DEFAULT_SETTINGS;
   });
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isAiSettingsOpen, setIsAiSettingsOpen] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
   const [copyStatus, setCopyStatus] = useState<'idle' | 'copied'>('idle');
   const [error, setError] = useState<string | null>(null);
@@ -122,7 +137,7 @@ export default function App() {
     }
   }, [settings]);
 
-  const processFile = (file: File) => {
+  const processFile = async (file: File) => {
     if (!file.name.endsWith('.csv')) {
       setError('Invalid file format. Please upload a .csv file.');
       return;
@@ -131,37 +146,61 @@ export default function App() {
     setError(null);
     setFileName(file.name);
     
-    Papa.parse(file, {
-      header: true,
-      skipEmptyLines: true,
-      complete: (results) => {
-        if (results.errors.length > 0) {
-          setError('Error parsing CSV. Please check the file structure.');
-          return;
-        }
-        
-        const rows = results.data as ManifestRow[];
-        if (rows.length === 0) {
-          setError('The uploaded CSV is empty.');
-          return;
-        }
+    try {
+      const decisions = await getAllDecisions();
+      const decisionMap = new Map(decisions.map(d => [d.packageDesc, d.status]));
+      
+      Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        complete: (results) => {
+          if (results.errors.length > 0) {
+            setError('Error parsing CSV. Please check the file structure.');
+            return;
+          }
+          
+          const rows = results.data as ManifestRow[];
+          if (rows.length === 0) {
+            setError('The uploaded CSV is empty.');
+            return;
+          }
 
-        // Basic validation of required columns
-        const required = ['HAWB', 'ConsigneeName', 'ConsigneeContactNo', 'UnitPrice', 'PackageDesc'];
-        const headers = Object.keys(rows[0]);
-        const missing = required.filter(col => !headers.includes(col));
-        
-        if (missing.length > 0) {
-          setError(`Missing required columns: ${missing.join(', ')}`);
-          return;
-        }
+          // Basic validation of required columns
+          const required = ['HAWB', 'ConsigneeName', 'ConsigneeContactNo', 'UnitPrice', 'PackageDesc'];
+          const headers = Object.keys(rows[0]);
+          const missing = required.filter(col => !headers.includes(col));
+          
+          if (missing.length > 0) {
+            setError(`Missing required columns: ${missing.join(', ')}`);
+            return;
+          }
 
-        setData(rows);
-      },
-      error: (err) => {
-        setError(`Processing error: ${err.message}`);
-      }
-    });
+          const newManualFlags = new Set<string>();
+          const newCheckedHawbs = new Set<string>();
+
+          rows.forEach(row => {
+            if (row.PackageDesc) {
+              const desc = row.PackageDesc.trim().toLowerCase();
+              const status = decisionMap.get(desc);
+              if (status === 'FLAGGED') {
+                newManualFlags.add(row.HAWB);
+              } else if (status === 'CLEARED') {
+                newCheckedHawbs.add(row.HAWB);
+              }
+            }
+          });
+
+          setManualFlags(newManualFlags);
+          setCheckedHawbs(newCheckedHawbs);
+          setData(rows);
+        },
+        error: (err) => {
+          setError(`Processing error: ${err.message}`);
+        }
+      });
+    } catch (err: any) {
+      setError(`Failed to load historical decisions: ${err.message}`);
+    }
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -281,11 +320,16 @@ export default function App() {
     return { selected: sortedSelected, notSelected: notSelectedRows, checked: checkedRows, stats };
   }, [data, settings, aiResults, manualFlags, checkedHawbs]);
 
-  const toggleManualFlag = (hawb: string, fromAuditModal: boolean = false) => {
+  const toggleManualFlag = async (hawb: string, fromAuditModal: boolean = false) => {
     const currentIndex = notSelected.findIndex(item => item.HAWB === hawb);
     const nextItem = (currentIndex !== -1 && currentIndex < notSelected.length - 1) 
       ? notSelected[currentIndex + 1] 
       : null;
+
+    const row = data.find(r => r.HAWB === hawb);
+    if (row && row.PackageDesc) {
+      await saveDecision(row.PackageDesc, 'FLAGGED');
+    }
 
     setManualFlags(prev => {
       const next = new Set(prev);
@@ -309,11 +353,16 @@ export default function App() {
     }
   };
 
-  const markAsChecked = (hawb: string, fromAuditModal: boolean = false) => {
+  const markAsChecked = async (hawb: string, fromAuditModal: boolean = false) => {
     const currentIndex = notSelected.findIndex(item => item.HAWB === hawb);
     const nextItem = (currentIndex !== -1 && currentIndex < notSelected.length - 1) 
       ? notSelected[currentIndex + 1] 
       : null;
+
+    const row = data.find(r => r.HAWB === hawb);
+    if (row && row.PackageDesc) {
+      await saveDecision(row.PackageDesc, 'CLEARED');
+    }
 
     setCheckedHawbs(prev => {
       const next = new Set(prev);
@@ -356,9 +405,22 @@ export default function App() {
         return;
       }
 
-      const prompt = `Analyze the following shipping manifest items for restricted goods. 
-      Look for "masked" descriptions that might be trying to hide supplements, electronics, or other regulated items.
-      Also explicitly flag any vehicle spare parts (car or motorcycle, e.g., "airblade exhaust cover").
+      const rulesText = settings.aiRules.map(r => `- ${r}`).join('\n');
+      const keywordsText = settings.aiKeywords.join(', ');
+      const translationText = settings.enableTranslation 
+        ? "IMPORTANT: Automatically detect and translate any foreign language package descriptions to English before evaluating them." 
+        : "";
+
+      const prompt = `Analyze the following shipping manifest items for restricted goods.
+      
+      ${translationText}
+      
+      Please apply the following rules to flag items:
+      ${rulesText}
+      
+      Pay special attention to these keywords (and their variations/synonyms):
+      ${keywordsText}
+      
       Return a JSON object with a "results" array containing objects with "hawb", "isRestricted" (boolean), and "reason" (string).
       
       Items:
@@ -505,7 +567,10 @@ export default function App() {
           )}
           
           <button 
-            onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+            onClick={() => {
+              setIsAiSettingsOpen(false);
+              setIsSettingsOpen(!isSettingsOpen);
+            }}
             className={cn(
               "flex items-center gap-2 px-4 py-2 rounded-[var(--radius-sm)] border-[length:var(--border-w)] transition-all text-sm font-medium",
               isSettingsOpen ? "bg-accent-main text-accent-text border-accent-main" : "bg-bg-card text-text-main border-border-main hover:border-accent-main"
@@ -513,6 +578,20 @@ export default function App() {
           >
             <Settings2 size={16} />
             Bonding Rules
+          </button>
+
+          <button 
+            onClick={() => {
+              setIsSettingsOpen(false);
+              setIsAiSettingsOpen(!isAiSettingsOpen);
+            }}
+            className={cn(
+              "flex items-center gap-2 px-4 py-2 rounded-[var(--radius-sm)] border-[length:var(--border-w)] transition-all text-sm font-medium",
+              isAiSettingsOpen ? "bg-accent-main text-accent-text border-accent-main" : "bg-bg-card text-text-main border-border-main hover:border-accent-main"
+            )}
+          >
+            <Brain size={16} />
+            AI Configuration
           </button>
           
           <input 
@@ -622,36 +701,6 @@ export default function App() {
                     <p className="text-[10px] text-text-muted/70">Keywords used to identify items that might get bonded (matches PackageDesc).</p>
                   </div>
 
-                  {/* AI Settings */}
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <label className="text-xs font-bold uppercase tracking-wider text-text-muted/70">AI Classification (Gemini)</label>
-                      <div 
-                        onClick={() => setSettings({ ...settings, aiEnabled: !settings.aiEnabled })}
-                        className={cn(
-                          "w-10 h-5 rounded-full relative cursor-pointer transition-colors",
-                          settings.aiEnabled ? "bg-success-main" : "bg-border-main"
-                        )}
-                      >
-                        <div className={cn(
-                          "absolute top-1 w-3 h-3 bg-bg-card rounded-full transition-all",
-                          settings.aiEnabled ? "left-6" : "left-1"
-                        )} />
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <input 
-                        type="password" 
-                        placeholder="Gemini API Key"
-                        value={settings.geminiApiKey}
-                        onChange={(e) => setSettings({ ...settings, geminiApiKey: e.target.value })}
-                        disabled={!settings.aiEnabled}
-                        className="w-full px-4 py-2.5 bg-bg-subtle border-[length:var(--border-w)] border-border-main rounded-[var(--radius-md)] focus:outline-none focus:border-accent-main transition-colors font-mono text-xs disabled:opacity-50"
-                      />
-                      <p className="text-[10px] text-text-muted/70">Required for intelligent PackageDesc analysis.</p>
-                    </div>
-                  </div>
                   {/* Theme Settings */}
                   <div className="space-y-3">
                     <label className="text-xs font-bold uppercase tracking-wider text-text-muted/70">App Theme</label>
@@ -705,6 +754,146 @@ export default function App() {
                   <label htmlFor="dup-check" className="text-sm font-medium cursor-pointer select-none">
                     Identify duplicate consignees (Potential bonding risk)
                   </label>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* AI Settings Panel */}
+        <AnimatePresence>
+          {isAiSettingsOpen && (
+            <motion.div 
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="overflow-hidden"
+            >
+              <div className="bg-bg-card border-[length:var(--border-w)] border-border-main rounded-[var(--radius-lg)] p-6 shadow-sm space-y-8">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Brain size={20} className="text-accent-main" />
+                    <h2 className="text-lg font-bold tracking-tight">AI Configuration</h2>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold uppercase tracking-wider text-text-muted/70">Enable AI</span>
+                      <div 
+                        onClick={() => setSettings({ ...settings, aiEnabled: !settings.aiEnabled })}
+                        className={cn(
+                          "w-10 h-5 rounded-full relative cursor-pointer transition-colors",
+                          settings.aiEnabled ? "bg-success-main" : "bg-border-main"
+                        )}
+                      >
+                        <div className={cn(
+                          "absolute top-1 w-3 h-3 bg-bg-card rounded-full transition-all",
+                          settings.aiEnabled ? "left-6" : "left-1"
+                        )} />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  <div className="space-y-6">
+                    {/* API Key */}
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold uppercase tracking-wider text-text-muted/70">Gemini API Key</label>
+                      <input 
+                        type="password" 
+                        placeholder="Enter your Gemini API Key..."
+                        value={settings.geminiApiKey}
+                        onChange={(e) => setSettings({ ...settings, geminiApiKey: e.target.value })}
+                        disabled={!settings.aiEnabled}
+                        className="w-full px-4 py-2.5 bg-bg-subtle border-[length:var(--border-w)] border-border-main rounded-[var(--radius-md)] focus:outline-none focus:border-accent-main transition-colors font-mono text-xs disabled:opacity-50"
+                      />
+                      <p className="text-[10px] text-text-muted/70">Required for intelligent PackageDesc analysis.</p>
+                    </div>
+
+                    {/* Translation Toggle */}
+                    <div className="flex items-center gap-3 pt-2">
+                      <input 
+                        type="checkbox" 
+                        id="translate-check"
+                        checked={settings.enableTranslation}
+                        onChange={(e) => setSettings({ ...settings, enableTranslation: e.target.checked })}
+                        disabled={!settings.aiEnabled}
+                        className="w-4 h-4 accent-accent-main disabled:opacity-50"
+                      />
+                      <label htmlFor="translate-check" className={cn("text-sm font-medium cursor-pointer select-none", !settings.aiEnabled && "opacity-50")}>
+                        Enable Multilingual Translation
+                      </label>
+                    </div>
+                    <p className="text-[10px] text-text-muted/70 pl-7 -mt-2">Automatically detect and translate foreign language descriptions during scan.</p>
+                  </div>
+
+                  <div className="space-y-6">
+                    {/* AI Rules */}
+                    <div className="space-y-3">
+                      <label className="text-xs font-bold uppercase tracking-wider text-text-muted/70">Custom AI Rules</label>
+                      <div className="flex flex-col gap-2 p-3 bg-bg-subtle border-[length:var(--border-w)] border-border-main rounded-[var(--radius-md)] min-h-[100px]">
+                        {settings.aiRules.map((rule, i) => (
+                          <div key={i} className="flex items-start gap-2 p-2 bg-bg-card border-[length:var(--border-w)] border-border-main rounded-[var(--radius-sm)] text-xs">
+                            <span className="flex-1 leading-relaxed">{rule}</span>
+                            <button 
+                              onClick={() => setSettings({ ...settings, aiRules: settings.aiRules.filter((_, idx) => idx !== i) })}
+                              className="text-text-muted/70 hover:text-danger-main shrink-0 mt-0.5"
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                        ))}
+                        <div className="flex gap-2 mt-1">
+                          <input 
+                            placeholder="Add a new rule..."
+                            className="bg-bg-card border-[length:var(--border-w)] border-border-main rounded-[var(--radius-sm)] px-3 py-1.5 focus:outline-none focus:border-accent-main text-xs flex-1"
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                const val = (e.target as HTMLInputElement).value.trim();
+                                if (val && !settings.aiRules.includes(val)) {
+                                  setSettings({ ...settings, aiRules: [...settings.aiRules, val] });
+                                  (e.target as HTMLInputElement).value = '';
+                                }
+                              }
+                            }}
+                          />
+                        </div>
+                      </div>
+                      <p className="text-[10px] text-text-muted/70">Instructions given to the AI to determine if an item should be flagged.</p>
+                    </div>
+
+                    {/* AI Keywords */}
+                    <div className="space-y-3">
+                      <label className="text-xs font-bold uppercase tracking-wider text-text-muted/70">AI Target Keywords</label>
+                      <div className="flex flex-wrap gap-2 p-3 bg-bg-subtle border-[length:var(--border-w)] border-border-main rounded-[var(--radius-md)] min-h-[46px]">
+                        {settings.aiKeywords.map((kw, i) => (
+                          <span key={i} className="flex items-center gap-1.5 px-2.5 py-1 bg-bg-card border-[length:var(--border-w)] border-border-main rounded-[var(--radius-sm)] text-xs font-medium">
+                            {kw}
+                            <button 
+                              onClick={() => setSettings({ ...settings, aiKeywords: settings.aiKeywords.filter((_, idx) => idx !== i) })}
+                              className="text-text-muted/70 hover:text-danger-main"
+                            >
+                              <X size={12} />
+                            </button>
+                          </span>
+                        ))}
+                        <input 
+                          placeholder="Add AI keyword..."
+                          className="bg-transparent border-none focus:outline-none text-xs flex-1 min-w-[100px]"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              const val = (e.target as HTMLInputElement).value.trim();
+                              if (val && !settings.aiKeywords.includes(val)) {
+                                setSettings({ ...settings, aiKeywords: [...settings.aiKeywords, val] });
+                                (e.target as HTMLInputElement).value = '';
+                              }
+                            }
+                          }}
+                        />
+                      </div>
+                      <p className="text-[10px] text-text-muted/70">Specific words the AI should explicitly look for.</p>
+                    </div>
+                  </div>
                 </div>
               </div>
             </motion.div>
