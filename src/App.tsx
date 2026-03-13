@@ -339,13 +339,14 @@ export default function App() {
 
       const prompt = `Analyze the following shipping manifest items for restricted goods. 
       Look for "masked" descriptions that might be trying to hide supplements, electronics, or other regulated items.
+      Also explicitly flag any vehicle spare parts (car or motorcycle, e.g., "airblade exhaust cover").
       Return a JSON object with a "results" array containing objects with "hawb", "isRestricted" (boolean), and "reason" (string).
       
       Items:
       ${itemsToScan.map(item => `HAWB: ${item.HAWB}, Desc: ${item.PackageDesc}`).join('\n')}`;
 
       const response = await ai.models.generateContent({
-        model: "gemini-1.5-flash",
+        model: "gemini-3-flash-preview",
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         config: {
           responseMimeType: "application/json",
