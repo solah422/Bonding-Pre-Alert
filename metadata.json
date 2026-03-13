@@ -1,0 +1,5 @@
+{
+  "name": "Bonding Pre-Alert Tool",
+  "description": "A tool to screen shipping manifests and identify items likely to be bonded, allowing for proactive customer pre-alerts based on price, duplicates, and keywords.",
+  "requestFramePermissions": []
+}
