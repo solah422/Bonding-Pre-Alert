@@ -90,6 +90,15 @@ const DEFAULT_SETTINGS: FilterSettings = {
   enableTranslation: false
 };
 
+interface ManifestSummary {
+  id: string;
+  timestamp: number;
+  totalItems: number;
+  bondedItems: number;
+  bondedValue: number;
+  reasons: Record<string, number>;
+}
+
 import { saveDecision, getDecision, getAllDecisions, HistoricalDecision } from './services/db';
 
 // --- Components ---
@@ -122,6 +131,15 @@ export default function App() {
   const [checkedHawbs, setCheckedHawbs] = useState<Set<string>>(new Set());
   const [showCheckedTable, setShowCheckedTable] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [isAppLoading, setIsAppLoading] = useState(true);
+
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsAppLoading(false);
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Save settings to localStorage
   React.useEffect(() => {
@@ -228,17 +246,6 @@ export default function App() {
     setSettings(DEFAULT_SETTINGS);
   };
 
-  const resetManifest = () => {
-    setData([]);
-    setFileName(null);
-    setError(null);
-    setManualFlags(new Set());
-    setAiResults({});
-    setAiScannedHawbs(new Set());
-    setCheckedHawbs(new Set());
-    if (fileInputRef.current) fileInputRef.current.value = '';
-  };
-
   const { selected, notSelected, checked, stats } = useMemo(() => {
     if (data.length === 0) return { selected: [], notSelected: [], checked: [], stats: null };
 
@@ -314,11 +321,67 @@ export default function App() {
       flagged: selectedRows.length,
       percentage: ((selectedRows.length / data.length) * 100).toFixed(1),
       totalValue: totalBondedValue.toFixed(2),
-      topReason: Object.entries(reasonCounts).sort((a, b) => b[1] - a[1])[0][0]
+      topReason: Object.entries(reasonCounts).sort((a, b) => b[1] - a[1])[0][0],
+      reasonCounts
     };
 
     return { selected: sortedSelected, notSelected: notSelectedRows, checked: checkedRows, stats };
   }, [data, settings, aiResults, manualFlags, checkedHawbs]);
+
+  const dashboardStats = useMemo(() => {
+    if (data.length > 0) return null;
+    const history: ManifestSummary[] = JSON.parse(localStorage.getItem('bonding_history') || '[]');
+    let totalManifests = history.length;
+    let totalItems = 0;
+    let bondedItems = 0;
+    let bondedValue = 0;
+    const reasons: Record<string, number> = {};
+
+    history.forEach(h => {
+      totalItems += h.totalItems || 0;
+      bondedItems += h.bondedItems || 0;
+      bondedValue += h.bondedValue || 0;
+      if (h.reasons) {
+        Object.entries(h.reasons).forEach(([k, v]) => {
+          reasons[k] = (reasons[k] || 0) + v;
+        });
+      }
+    });
+
+    const bondingRate = totalItems > 0 ? ((bondedItems / totalItems) * 100).toFixed(1) : '0.0';
+    const topReason = Object.keys(reasons).length > 0 
+      ? Object.entries(reasons).sort((a, b) => b[1] - a[1])[0][0] 
+      : 'N/A';
+
+    return { totalManifests, totalItems, bondedItems, bondedValue: bondedValue.toFixed(2), bondingRate, topReason };
+  }, [data.length]);
+
+  const saveCurrentManifestStats = () => {
+    if (data.length === 0 || !stats) return;
+    const summary: ManifestSummary = {
+      id: Date.now().toString(),
+      timestamp: Date.now(),
+      totalItems: stats.total,
+      bondedItems: stats.flagged,
+      bondedValue: parseFloat(stats.totalValue),
+      reasons: stats.reasonCounts
+    };
+    const history = JSON.parse(localStorage.getItem('bonding_history') || '[]');
+    history.push(summary);
+    localStorage.setItem('bonding_history', JSON.stringify(history));
+  };
+
+  const resetManifest = () => {
+    saveCurrentManifestStats();
+    setData([]);
+    setFileName(null);
+    setError(null);
+    setManualFlags(new Set());
+    setAiResults({});
+    setAiScannedHawbs(new Set());
+    setCheckedHawbs(new Set());
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
 
   const toggleManualFlag = async (hawb: string, fromAuditModal: boolean = false) => {
     const currentIndex = notSelected.findIndex(item => item.HAWB === hawb);
@@ -327,15 +390,19 @@ export default function App() {
       : null;
 
     const row = data.find(r => r.HAWB === hawb);
-    if (row && row.PackageDesc) {
-      await saveDecision(row.PackageDesc, 'FLAGGED');
-    }
-
+    
     setManualFlags(prev => {
       const next = new Set(prev);
-      if (next.has(hawb)) next.delete(hawb);
-      else {
+      if (next.has(hawb)) {
+        next.delete(hawb);
+        if (row && row.PackageDesc) {
+          saveDecision(row.PackageDesc, 'CLEARED');
+        }
+      } else {
         next.add(hawb);
+        if (row && row.PackageDesc) {
+          saveDecision(row.PackageDesc, 'FLAGGED');
+        }
         // If we flag it, remove it from checked if it was there
         setCheckedHawbs(cp => {
           const cn = new Set(cp);
@@ -372,7 +439,9 @@ export default function App() {
     // If we mark as checked, remove from manual flags if it was there
     setManualFlags(prev => {
       const next = new Set(prev);
-      next.delete(hawb);
+      if (next.has(hawb)) {
+        next.delete(hawb);
+      }
       return next;
     });
     
@@ -507,6 +576,35 @@ export default function App() {
     link.click();
     document.body.removeChild(link);
   };
+
+  if (isAppLoading) {
+    return (
+      <div className="min-h-screen bg-bg-main flex flex-col items-center justify-center text-text-main">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.5 }}
+          className="flex flex-col items-center gap-6"
+        >
+          <div className="w-24 h-24 bg-accent-main rounded-[var(--radius-xl)] flex items-center justify-center text-accent-text shadow-2xl">
+            <FileText size={48} />
+          </div>
+          <div className="text-center space-y-2">
+            <h1 className="text-3xl font-bold tracking-tight">Bonding Pre-Alert</h1>
+            <p className="text-sm text-text-muted uppercase tracking-widest font-medium">Manifest Analysis Tool</p>
+          </div>
+          <div className="w-48 h-1 bg-bg-subtle rounded-full overflow-hidden mt-4">
+            <motion.div 
+              className="h-full bg-accent-main"
+              initial={{ width: "0%" }}
+              animate={{ width: "100%" }}
+              transition={{ duration: 1.2, ease: "easeInOut" }}
+            />
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
 
   return (
     <div 
@@ -946,9 +1044,9 @@ export default function App() {
         )}
 
         {data.length === 0 ? (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="space-y-8">
             <div 
-              className="lg:col-span-2 bg-bg-card border-[length:calc(var(--border-w)*2)] border-dashed border-border-main rounded-[var(--radius-xl)] h-[450px] flex flex-col items-center justify-center text-center p-12 transition-all"
+              className="bg-bg-card border-[length:calc(var(--border-w)*2)] border-dashed border-border-main rounded-[var(--radius-xl)] h-[400px] flex flex-col items-center justify-center text-center p-12 transition-all"
             >
               <div className="w-16 h-16 bg-bg-subtle text-text-muted/40 rounded-[var(--radius-lg)] flex items-center justify-center mb-4 transition-colors">
                 <Upload size={32} />
@@ -964,37 +1062,47 @@ export default function App() {
                 Select CSV File
               </button>
             </div>
-            
-            <div className="bg-bg-card border-[length:var(--border-w)] border-border-main rounded-[var(--radius-xl)] p-8 space-y-6">
-              <div className="flex items-center gap-3 text-text-main">
-                <Info size={20} />
-                <h3 className="font-bold uppercase tracking-wider text-sm">Sample CSV Structure</h3>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="bg-bg-card p-5 rounded-[var(--radius-lg)] border-[length:var(--border-w)] border-border-main shadow-sm flex items-center gap-4">
+                <div className="w-12 h-12 bg-info-bg text-info-main rounded-[var(--radius-md)] flex items-center justify-center">
+                  <FileText size={24} />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-text-muted/70 uppercase tracking-wider">Manifests</p>
+                  <h3 className="text-2xl font-bold tracking-tight">{dashboardStats?.totalManifests || 0}</h3>
+                  <p className="text-[10px] text-text-muted">Total processed</p>
+                </div>
               </div>
-              <div className="bg-bg-subtle p-4 rounded-[var(--radius-md)] font-mono text-[10px] text-text-muted overflow-x-auto whitespace-pre">
-                HAWB,ConsigneeName,ConsigneeContactNo,UnitPrice,PackageDesc{"\n"}
-                H123,John Doe,0123456789,750,iPhone 15 Pro{"\n"}
-                H124,Jane Smith,0987654321,50,T-Shirt{"\n"}
-                H125,John Doe,0123456789,120,Supplements
+              <div className="bg-bg-card p-5 rounded-[var(--radius-lg)] border-[length:var(--border-w)] border-border-main shadow-sm flex items-center gap-4">
+                <div className="w-12 h-12 bg-danger-bg text-danger-main rounded-[var(--radius-md)] flex items-center justify-center">
+                  <AlertTriangle size={24} />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-text-muted/70 uppercase tracking-wider">Bonding Rate</p>
+                  <h3 className="text-2xl font-bold tracking-tight">{dashboardStats?.bondingRate || '0.0'}%</h3>
+                  <p className="text-[10px] text-text-muted">{dashboardStats?.bondedItems || 0} of {dashboardStats?.totalItems || 0} items</p>
+                </div>
               </div>
-              <div className="space-y-4 pt-4">
-                <p className="text-xs text-text-muted leading-relaxed">
-                  Your CSV must include these exact headers for the tool to work correctly.
-                </p>
-                <button 
-                  onClick={() => {
-                    const csv = "HAWB,ConsigneeName,ConsigneeContactNo,UnitPrice,PackageDesc\nH123,John Doe,0123456789,750,iPhone 15 Pro\nH124,Jane Smith,0987654321,50,T-Shirt\nH125,John Doe,0123456789,120,Supplements";
-                    const blob = new Blob([csv], { type: 'text/csv' });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = 'manifest_template.csv';
-                    a.click();
-                  }}
-                  className="w-full flex items-center justify-center gap-2 py-3 border-[length:var(--border-w)] border-border-main rounded-[var(--radius-md)] text-sm font-bold hover:bg-bg-subtle transition-colors"
-                >
-                  <Download size={16} />
-                  Download Template
-                </button>
+              <div className="bg-bg-card p-5 rounded-[var(--radius-lg)] border-[length:var(--border-w)] border-border-main shadow-sm flex items-center gap-4">
+                <div className="w-12 h-12 bg-warning-bg text-warning-main rounded-[var(--radius-md)] flex items-center justify-center">
+                  <DollarSign size={24} />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-text-muted/70 uppercase tracking-wider">Potential Value</p>
+                  <h3 className="text-2xl font-bold tracking-tight">${dashboardStats?.bondedValue || '0.00'}</h3>
+                  <p className="text-[10px] text-text-muted">Total value of bonded items</p>
+                </div>
+              </div>
+              <div className="bg-bg-card p-5 rounded-[var(--radius-lg)] border-[length:var(--border-w)] border-border-main shadow-sm flex items-center gap-4">
+                <div className="w-12 h-12 bg-success-bg text-success-main rounded-[var(--radius-md)] flex items-center justify-center">
+                  <TrendingUp size={24} />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-text-muted/70 uppercase tracking-wider">Top Reason</p>
+                  <h3 className="text-2xl font-bold tracking-tight">{dashboardStats?.topReason || 'N/A'}</h3>
+                  <p className="text-[10px] text-text-muted">Most frequent bonding trigger</p>
+                </div>
               </div>
             </div>
           </div>
@@ -1309,16 +1417,6 @@ export default function App() {
           </div>
         )}
       </AnimatePresence>
-
-      {/* Footer Info */}
-      {fileName && (
-        <div className="fixed bottom-6 left-6 bg-accent-main text-accent-text px-4 py-2 rounded-full text-xs font-bold shadow-2xl flex items-center gap-3">
-          <FileText size={14} />
-          {fileName}
-          <div className="w-px h-3 bg-bg-card/20" />
-          {data.length} TOTAL ROWS
-        </div>
-      )}
     </div>
   );
 }

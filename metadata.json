@@ -1,5 +1,5 @@
 {
   "name": "Bonding Pre-Alert Tool",
-  "description": "A tool to screen shipping manifests and identify items likely to be bonded, allowing for proactive customer pre-alerts based on price, duplicates, and keywords. Features AI-powered scanning with customizable rules, multilingual translation, historical memory via IndexedDB, manual auditing workflows, and customizable UI themes.",
+  "description": "A tool to screen shipping manifests and identify items likely to be bonded, allowing for proactive customer pre-alerts based on price, duplicates, and keywords. Features a dashboard with historical analytics, a loading splash screen, AI-powered scanning with customizable rules, multilingual translation, historical memory via IndexedDB, manual auditing workflows, and customizable UI themes.",
   "requestFramePermissions": []
 }

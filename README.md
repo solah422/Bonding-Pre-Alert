@@ -4,7 +4,9 @@ A powerful, React-based web application designed to streamline the auditing of s
 
 ## Features
 
-- **CSV Manifest Processing**: Upload and parse large shipping manifest CSV files instantly.
+- **Dashboard Analytics**: View key statistics such as total manifests processed, bonding rate, potential value of bonded items, and top bonding reasons directly on the home screen.
+- **Loading Splash Screen**: A polished loading experience when the application starts.
+- **CSV Manifest Processing**: Upload and parse large shipping manifest CSV files instantly with global drag-and-drop support.
 - **AI-Powered Scanning**: Integrates with the Google Gemini API to automatically analyze package descriptions.
 - **Customizable AI Rules**: Define your own custom rules, keywords, and restricted categories directly in the Settings menu.
 - **Multilingual Translation**: Automatically detect and translate foreign language package descriptions during the AI scan for better accuracy.
